@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "erpnext.api.base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'erpnext.api.base-url'"
+  },
+  {
+    "name": "erpnext.api.key",
+    "type": "java.lang.String",
+    "description": "A description for 'erpnext.api.key'"
+  },
+  {
+    "name": "erpnext.api.secret",
+    "type": "java.lang.String",
+    "description": "A description for 'erpnext.api.secret'"
+  }
+]}
