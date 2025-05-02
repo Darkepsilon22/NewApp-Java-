@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Liste des Fournisseurs</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Liste des Fournisseurs</h2>
+        <a href="/" class="btn btn-secondary btn-sm">Retour à l'accueil</a>
+    </div>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Nom du Fournisseur</th>
+                <th>Type</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="supplier : ${suppliers}">
+                <td th:text="${supplier.supplierName}"></td>
+                <td th:text="${supplier.supplierType}"></td>
+                <td>
+                    <a th:href="@{/supplier/quotations(supplierId=${supplier.supplierName})}" class="btn btn-primary btn-sm">Voir les devis</a>
+                    <a th:href="@{/supplier/orders(supplierId=${supplier.supplierName})}" class="btn btn-success btn-sm">Voir les commandes</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

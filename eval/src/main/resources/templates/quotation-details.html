@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Détails du Supplier Quotation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Détails du Supplier Quotation</h2>
+    <a th:href="@{/supplier/quotations(supplierId=${supplierId})}" class="btn btn-secondary btn-sm">Retour aux Demandes</a>
+</div>
+
+<!-- Messages de succès/erreur -->
+<div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+    <span th:text="${successMessage}"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <span th:text="${errorMessage}"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h4>Demande: <span th:text="${rfqId}"></span></h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Supplier Quotation</th>
+                    <th>Article</th>
+                    <th>Nom Article</th>
+                    <th>Prix actuel</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="quotation : ${quotations}">
+                    <td th:text="${quotation.supplierQuotationName}"></td>
+                    <td th:text="${quotation.itemCode}"></td>
+                    <td th:text="${quotation.itemName}"></td>
+                    <td th:text="${quotation.rate > 0 ? #numbers.formatDecimal(quotation.rate, 1, 2) + ' EUR' : 'À déterminer'}"></td>
+                    <td>
+                        <div th:if="${quotation.isEditable()}">
+                            <form th:action="@{/item/update-quotation-price}" method="post" class="d-flex gap-2">
+                                <input type="hidden" name="itemCode" th:value="${quotation.itemCode}" />
+                                <input type="hidden" name="supplierId" th:value="${supplierId}" />
+                                <input type="hidden" name="rfqId" th:value="${rfqId}" />
+                                <input type="hidden" name="quotationName" th:value="${quotation.supplierQuotationName}" />
+                                <input type="number" 
+                                       name="newPrice" 
+                                       step="0.01" 
+                                       th:value="${quotation.rate > 0 ? #numbers.formatDecimal(quotation.rate, 1, 2) : ''}"
+                                       placeholder="Nouveau prix" 
+                                       required 
+                                       class="form-control form-control-sm" 
+                                       min="0" />
+                                <button type="submit" class="btn btn-sm btn-primary">Mettre à jour</button>
+                            </form>
+                        </div>
+                        <div th:unless="${quotation.isEditable()}" class="text-muted">
+                            Non modifiable (déjà soumis)
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Script Bootstrap pour la gestion des alertes -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

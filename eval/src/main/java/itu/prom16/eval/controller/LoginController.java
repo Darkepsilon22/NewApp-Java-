@@ -52,7 +52,7 @@ public class LoginController {
             if (sid != null && sid.contains("sid=")) {
                 sid = sid.split("sid=")[1].split(";")[0];
                 session.setAttribute("sid", sid);
-                return "redirect:/dashboard";
+                return "redirect:/suppliers";
             } else {
                 model.addAttribute("error", "Échec de l'authentification");
                 return "/login";

@@ -13,5 +13,10 @@
     "name": "erpnext.api.secret",
     "type": "java.lang.String",
     "description": "A description for 'erpnext.api.secret'"
+  },
+  {
+    "name": "erpnext.default.price-list",
+    "type": "java.lang.String",
+    "description": "A description for 'erpnext.default.price-list'"
   }
 ]}
