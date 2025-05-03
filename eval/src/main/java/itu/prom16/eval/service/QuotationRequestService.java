@@ -91,7 +91,7 @@ public class QuotationRequestService {
         List<QuotationRequestDTO> quotationDetails = new ArrayList<>();
         
         try {
-            // Get Supplier Quotations for this supplier and RFQ
+            // Get Supplier Quotations for this supplier only
             String filters = "[[\"supplier\",\"=\",\"" + supplierId + "\"]]";
             ResponseEntity<JsonNode> quotesResponse = restTemplate.exchange(
                 baseUrl + "/api/resource/Supplier Quotation?filters=" + filters,
@@ -102,6 +102,8 @@ public class QuotationRequestService {
             JsonNode quotesData = quotesResponse.getBody().get("data");
             
             if (quotesData != null && quotesData.isArray()) {
+                logger.info("Found {} supplier quotations for supplier {}", quotesData.size(), supplierId);
+                
                 for (JsonNode quoteNode : quotesData) {
                     String quoteName = quoteNode.get("name").asText();
                     
@@ -116,10 +118,42 @@ public class QuotationRequestService {
                     JsonNode quoteItems = quoteDetail.get("items");
                     int docStatus = quoteDetail.has("docstatus") ? quoteDetail.get("docstatus").asInt() : 0;
                     
-                    // Check if this quotation is associated with our RFQ
-                    String quotationRfq = getSafeTextValue(quoteDetail, "request_for_quotation");
+                    // FIX: Check for blank/null RFQ reference
+                    String quotationRfq = "";
+                    if (quoteDetail.has("request_for_quotation") && !quoteDetail.get("request_for_quotation").isNull()) {
+                        quotationRfq = quoteDetail.get("request_for_quotation").asText("");
+                    }
                     
-                    if (quotationRfq.equals(rfqId) || quotationRfq.isEmpty()) { // Include if matches RFQ or if not linked
+                    logger.debug("RFQ attendu : {} | RFQ lié : {}", rfqId, quotationRfq);
+                    
+                    // IMPORTANT FIX: Check items manually for RFQ reference if doc-level reference is missing
+                    boolean isMatch = false;
+                    
+                    // First check document-level reference
+                    if (quotationRfq != null && !quotationRfq.isEmpty() && 
+                        quotationRfq.equalsIgnoreCase(rfqId.trim())) {
+                        isMatch = true;
+                        logger.info("Devis {} lié au RFQ {} (niveau document)", quoteName, rfqId);
+                    }
+                    // Then check items for references to the RFQ
+                    else if (quoteItems != null && quoteItems.isArray()) {
+                        for (JsonNode item : quoteItems) {
+                            if (item.has("request_for_quotation") && 
+                                !item.get("request_for_quotation").isNull()) {
+                                
+                                String itemRfq = item.get("request_for_quotation").asText("");
+                                if (!itemRfq.isEmpty() && itemRfq.equalsIgnoreCase(rfqId.trim())) {
+                                    isMatch = true;
+                                    logger.info("Devis {} lié au RFQ {} (niveau item)", quoteName, rfqId);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Continue with processing if match is found
+                    if (isMatch) {
+                        // Process items for this quotation
                         if (quoteItems != null && quoteItems.isArray()) {
                             for (JsonNode quoteItem : quoteItems) {
                                 String quoteItemCode = getSafeTextValue(quoteItem, "item_code");
@@ -146,7 +180,6 @@ public class QuotationRequestService {
                                 dto.setItemName(itemName);
                                 dto.setRate(rate);
                                 dto.setRequestId(rfqId);
-                                // Add document status to indicate if quotation is editable
                                 dto.setDocStatus(docStatus);
                                 
                                 quotationDetails.add(dto);
@@ -154,9 +187,12 @@ public class QuotationRequestService {
                                     quoteItemCode, quoteName, rate, docStatus);
                             }
                         }
+                    } else {
+                        logger.warn("Devis {} ignoré - RFQ incorrect: {}", quoteName, quotationRfq);
                     }
                 }
             }
+    
             
             // If no quotations found, create a placeholder for a new one
             if (quotationDetails.isEmpty()) {
@@ -203,7 +239,7 @@ public class QuotationRequestService {
             }
             
             return quotationDetails;
-            
+        
         } catch (Exception e) {
             logger.error("Erreur API pour les details du supplier quotation", e);
             throw new RuntimeException("Erreur lors de la récupération des détails du devis", e);
@@ -218,8 +254,7 @@ public class QuotationRequestService {
             RestTemplate restTemplate = new RestTemplate();
             
             if ("Nouveau devis".equals(quotationName)) {
-                // We need to create a new quotation
-                // This should be implemented through the ItemService.updatePriceListRate method
+          
                 logger.info("Creation of new supplier quotation will be handled by ItemService");
                 return;
             }
@@ -234,10 +269,8 @@ public class QuotationRequestService {
             JsonNode quoteData = response.getBody().get("data");
             int docStatus = quoteData.has("docstatus") ? quoteData.get("docstatus").asInt() : 0;
             
-            // If quotation is already submitted, create a new one instead of updating
             if (docStatus == 1) {
                 logger.info("Quotation {} is already submitted. Creating a new one.", quotationName);
-                // Will be handled by ItemService.updatePriceListRate
                 return;
             }
             
