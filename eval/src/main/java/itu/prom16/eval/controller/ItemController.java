@@ -42,7 +42,6 @@ public class ItemController {
                 "Erreur lors de la mise à jour du prix: " + e.getMessage());
         }
         
-        // Redirect back to the quotations page if supplierId is provided
         if (supplierId != null && !supplierId.isEmpty()) {
             return "redirect:/supplier/quotations?supplierId=" + supplierId;
         }
@@ -65,15 +64,15 @@ public class ItemController {
             return "redirect:/";
         }
         
+        logger.info("Processing quote update: item={}, price={}, rfq={}, quotation={}", 
+                itemCode, newPrice, rfqId, quotationName);
+        
         try {
             if ("Nouveau devis".equals(quotationName)) {
-                // Create a new quotation
-                logger.info("Creating new supplier quotation for item {} with price {}", itemCode, newPrice);
-                itemService.updatePriceListRate(itemCode, newPrice, sid);
+                
+                itemService.updatePriceListRate(itemCode, newPrice, sid, rfqId); 
             } else {
-                // Try to update existing quotation, or create new one if it fails
-                logger.info("Updating price for item {} in quotation {} to {}", itemCode, quotationName, newPrice);
-                itemService.updateQuotationItemPrice(quotationName, itemCode, newPrice, sid);
+                itemService.updateQuotationItemPrice(quotationName, itemCode, newPrice, sid, rfqId);
             }
             
             redirectAttributes.addFlashAttribute("successMessage", 
