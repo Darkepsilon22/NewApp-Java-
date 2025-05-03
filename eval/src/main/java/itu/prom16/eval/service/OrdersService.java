@@ -9,6 +9,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +25,7 @@ public class OrdersService {
     public List<OrderDTO> getOrders(String supplierId, String sid) {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Cookie", "sid=" + sid);
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
         RestTemplate restTemplate = new RestTemplate();
@@ -30,7 +33,7 @@ public class OrdersService {
         List<OrderDTO> orders = new ArrayList<>();
 
         try {
-            // Étape 1 : récupérer la liste des noms de commandes
+            // Récupération des commandes
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                     baseUrl + "/api/resource/Purchase Order?fields=[\"name\"]",
                     HttpMethod.GET,
@@ -43,7 +46,7 @@ public class OrdersService {
             for (JsonNode node : data) {
                 String orderName = node.get("name").asText();
 
-                // Étape 2 : détails de chaque commande
+                // Détails de la commande
                 ResponseEntity<JsonNode> detailResponse = restTemplate.exchange(
                         baseUrl + "/api/resource/Purchase Order/" + orderName,
                         HttpMethod.GET,
@@ -63,9 +66,9 @@ public class OrdersService {
                     double perReceived = detail.has("per_received") ? detail.get("per_received").asDouble() : 0.0;
                     order.setReceived(perReceived >= 99.9);
 
-                    // Champ "paid" basé sur per_billed
-                    double perBilled = detail.has("per_billed") ? detail.get("per_billed").asDouble() : 0.0;
-                    order.setPaid(perBilled >= 99.9);
+                    // Vérification du paiement via les factures liées
+                    boolean isPaid = checkOrderPaymentStatus(orderName, entity, restTemplate);
+                    order.setPaid(isPaid);
 
                     orders.add(order);
                 }
@@ -79,6 +82,55 @@ public class OrdersService {
         }
     }
 
+    private boolean checkOrderPaymentStatus(String orderName, HttpEntity<String> entity, RestTemplate restTemplate) {
+        try {
+            // Approach 2: Get all related invoices directly without filters
+            // We'll use direct path to query for the specific purchase order
+            String url = baseUrl + "/api/resource/Purchase Invoice";
+    
+            ResponseEntity<JsonNode> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    JsonNode.class
+            );
+    
+            JsonNode invoices = response.getBody().get("data");
+            boolean hasRelatedInvoice = false;
+            
+            for (JsonNode invoice : invoices) {
+                // Get detailed invoice to check its items
+                String invoiceName = invoice.get("name").asText();
+                ResponseEntity<JsonNode> detailResponse = restTemplate.exchange(
+                        baseUrl + "/api/resource/Purchase Invoice/" + invoiceName,
+                        HttpMethod.GET,
+                        entity,
+                        JsonNode.class
+                );
+                
+                JsonNode detail = detailResponse.getBody().get("data");
+                JsonNode items = detail.get("items");
+                
+                // Check if this invoice is related to our order
+                for (JsonNode item : items) {
+                    if (item.has("purchase_order") && 
+                        orderName.equals(item.get("purchase_order").asText())) {
+                        hasRelatedInvoice = true;
+                        double outstanding = detail.get("outstanding_amount").asDouble(0.0);
+                        if (outstanding > 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            
+            return hasRelatedInvoice; // Only return true if at least one related invoice exists and is paid
+    
+        } catch (Exception e) {
+            logger.error("Erreur lors de la vérification du paiement pour la commande {}", orderName, e);
+            return false;
+        }
+    }
     private String getSafeTextValue(JsonNode node, String fieldName) {
         return node.has(fieldName) && !node.get(fieldName).isNull()
                 ? node.get(fieldName).asText()
