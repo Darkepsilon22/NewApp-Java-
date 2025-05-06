@@ -159,6 +159,9 @@ public class ItemService {
                                    quotationName, linkedRfq.isEmpty() ? "(niveau item)" : linkedRfq);
                     }
                 }
+                
+                submitQuotation(quotationName, headers, new RestTemplate());
+                logger.info("Devis {} soumis automatiquement après création", quotationName);
             } else {
                 logger.error("Erreur lors de la création du devis: {}", response.getBody());
                 throw new RuntimeException("Échec de la création du devis");
@@ -236,6 +239,9 @@ public class ItemService {
                     }
                     
                     logger.debug("Price updated successfully for item {} in quotation {}", itemCode, quotationName);
+                    
+                    submitQuotation(quotationName, headers, restTemplate);
+                    logger.info("Devis {} soumis automatiquement après mise à jour du prix", quotationName);
                 } catch (HttpClientErrorException ex) {
                     logger.warn("Failed to update existing quotation: {}. Creating a new one.", ex.getMessage());
                     updatePriceListRate(itemCode, newPrice, sid, rfqId);
@@ -254,34 +260,120 @@ public class ItemService {
         updateQuotationItemPrice(quotationName, itemCode, newPrice, sid, null);
     }
     
-    private void submitQuotation(String quotationName, String sid) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.add("Cookie", "sid=" + sid);
-            
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("doctype", "Supplier Quotation");
-            requestBody.put("name", quotationName);
-            requestBody.put("docstatus", 1); // 1 means submit
-            
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            RestTemplate restTemplate = new RestTemplate();
-            
-            restTemplate.exchange(
-                baseUrl + "/api/resource/Supplier Quotation/" + quotationName,
-                HttpMethod.PUT,
-                entity,
-                Object.class
-            );
-            
-            logger.debug("Quotation {} submitted successfully", quotationName);
-        } catch (Exception e) {
-            logger.error("Error submitting quotation " + quotationName, e);
+    private void submitQuotation(String quotationName, 
+                            HttpHeaders headers, RestTemplate restTemplate) {
+    try {
+        ResponseEntity<JsonNode> getResponse = restTemplate.exchange(
+            baseUrl + "/api/resource/Supplier Quotation/" + quotationName,
+            HttpMethod.GET,
+            new HttpEntity<>(headers),
+            JsonNode.class
+        );
+        
+        if (!getResponse.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Échec de récupération du devis - Statut HTTP " + getResponse.getStatusCode());
         }
+        
+        JsonNode docData = getResponse.getBody().get("data");
+        int docStatus = docData.has("docstatus") ? docData.get("docstatus").asInt() : 0;
+        
+        if (docStatus == 1) {
+            logger.info("Le devis {} est déjà soumis, aucune action nécessaire", quotationName);
+            return;
+        }
+        
+        String url = baseUrl + "/api/method/frappe.client.submit";
+        
+        Map<String, Object> doc = new HashMap<>();
+        
+        doc.put("doctype", "Supplier Quotation");
+        doc.put("name", quotationName);
+        
+        if (docData.has("naming_series")) doc.put("naming_series", docData.get("naming_series").asText());
+        if (docData.has("supplier")) doc.put("supplier", docData.get("supplier").asText());
+        if (docData.has("company")) doc.put("company", docData.get("company").asText());
+        if (docData.has("transaction_date")) doc.put("transaction_date", docData.get("transaction_date").asText());
+        if (docData.has("currency")) doc.put("currency", docData.get("currency").asText());
+        if (docData.has("conversion_rate")) doc.put("conversion_rate", docData.get("conversion_rate").asDouble());
+        
+        if (docData.has("modified")) doc.put("modified", docData.get("modified").asText());
+        
+        if (docData.has("items") && docData.get("items").isArray()) {
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (JsonNode itemNode : docData.get("items")) {
+                Map<String, Object> item = new HashMap<>();
+                
+                itemNode.fields().forEachRemaining(entry -> {
+                    String key = entry.getKey();
+                    JsonNode value = entry.getValue();
+                    
+                    if (value.isTextual()) item.put(key, value.asText());
+                    else if (value.isNumber()) {
+                        if (value.isInt()) item.put(key, value.asInt());
+                        else if (value.isLong()) item.put(key, value.asLong());
+                        else if (value.isDouble()) item.put(key, value.asDouble());
+                    }
+                    else if (value.isBoolean()) item.put(key, value.asBoolean());
+                    else if (value.isNull()) item.put(key, null);
+                });
+                
+                items.add(item);
+            }
+            doc.put("items", items);
+        }
+        
+        docData.fields().forEachRemaining(entry -> {
+            String key = entry.getKey();
+            JsonNode value = entry.getValue();
+            
+            if (!doc.containsKey(key) && !value.isArray() && !value.isObject()) {
+                if (value.isTextual()) doc.put(key, value.asText());
+                else if (value.isNumber()) {
+                    if (value.isInt()) doc.put(key, value.asInt());
+                    else if (value.isLong()) doc.put(key, value.asLong());
+                    else if (value.isDouble()) doc.put(key, value.asDouble());
+                }
+                else if (value.isBoolean()) doc.put(key, value.asBoolean());
+                else if (value.isNull()) doc.put(key, null);
+            }
+        });
+        
+        Map<String, Object> body = new HashMap<>();
+        body.put("doc", doc);
+        
+        logger.debug("Payload pour soumission du devis {}: {}", quotationName, body);
+        
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+        
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        
+        ResponseEntity<JsonNode> response = restTemplate.exchange(
+            url,
+            HttpMethod.POST,
+            entity,
+            JsonNode.class
+        );
+        
+        if (response.getStatusCode().is2xxSuccessful()) {
+            JsonNode responseBody = response.getBody();
+            if (responseBody != null) {
+                logger.info("Soumission réussie du devis {}", quotationName);
+            } else {
+                logger.warn("Réponse de soumission anormale pour le devis {}", quotationName);
+            }
+        } else {
+            throw new RuntimeException("Échec de soumission - Statut HTTP " + response.getStatusCode());
+        }
+        
+    } catch (Exception e) {
+        logger.error("Échec critique de soumission pour {}", quotationName, e);
+        throw new RuntimeException("Soumission impossible : " + e.getMessage());
     }
-    
-
+}
     private String getSupplierIdFromSession(String sid) {
         try {
             HttpHeaders headers = new HttpHeaders();

@@ -1,31 +1,166 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Commandes</title>
+    <title>Gestion des Commandes</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .order-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        .status-badge {
+            font-size: 0.8em;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+            transition: background-color 0.2s ease;
+        }
+        .icon-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .select2-container--bootstrap-5 .select2-selection {
+            font-size: 0.775rem !important;
+            min-height: 28px !important;
+        }
+        
+        .form-select-sm {
+            padding: 0.25rem 1.75rem 0.25rem 0.5rem;
+            background-position: right 0.25rem center;
+        }
+        
+        .form-select-xs {
+            font-size: 0.775rem;
+            padding: 0.2rem 1.5rem 0.2rem 0.5rem;
+            line-height: 1.3;
+        }
+    </style>
 </head>
-<body class="p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Commandes</h2>
-        <a href="/suppliers" class="btn btn-secondary btn-sm">Retour aux Fournisseurs</a>
+<body class="p-4 bg-light">
+    <div class="container-lg">
+        <div class="order-card">
+            <div class="p-4 border-bottom bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-1 text-primary">
+                            <i class="fas fa-truck-moving me-2"></i>Historique des Commandes
+                        </h2>
+           
+                    </div>
+                    <a href="/suppliers" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Retour aux fournisseurs
+                    </a>
+                </div>
+            </div>
+
+            <div class="p-4">
+                <div class="table-responsive">
+                    <form method="get" class="mb-3" th:action="@{/supplier/orders}">
+                        <input type="hidden" name="supplierId" th:value="${supplierId}"/>
+                        
+                        <div class="d-flex flex-wrap gap-2 align-items-center bg-white p-3 rounded-3 shadow-sm">
+                            <div class="flex-grow-1" style="min-width: 250px;">
+                                <div class="input-group input-group-sm" style="max-width: 180px;">
+                                    <span class="input-group-text bg-transparent border-end-0 py-1">
+                                        <i class="fas fa-fw fa-filter fa-2xs text-muted"></i>
+                                    </span>
+                                    <select class="form-select form-select-sm border-start-0 py-1" 
+                                            name="status"
+                                            style="font-size: 0.775rem;">
+                                        <option value="">Statut</option>
+                                        <option value="To Bill" th:selected="${status == 'To Bill'}">To Bill</option>
+                                        <option value="To Receive and Bill" th:selected="${status == 'To Receive and Bill'}">To Receive</option>
+                                        <option value="Completed" th:selected="${status == 'Completed'}">Terminé</option>
+                                    </select>
+                                </div>
+                            </div>
+            
+                            <div class="d-flex gap-2 align-items-center">
+                                <div class="input-group input-group-sm">
+                                    <select class="form-select form-select-sm" name="received">
+                                        <option value="">Réception</option>
+                                        <option value="true" th:selected="${received == 'true'}">Reçu</option>
+                                        <option value="false" th:selected="${received == 'false'}">Non reçu</option>
+                                    </select>
+                                </div>
+            
+                                <div class="input-group input-group-sm">
+                                    <select class="form-select form-select-sm" name="paid">
+                                        <option value="">Paiement</option>
+                                        <option value="true" th:selected="${paid == 'true'}">Payé</option>
+                                        <option value="false" th:selected="${paid == 'false'}">Non payé</option>
+                                    </select>
+                                </div>
+            
+                                <button class="btn btn-sm btn-primary d-flex align-items-center" 
+                                        type="submit"
+                                        data-bs-toggle="tooltip" 
+                                        title="Appliquer les filtres">
+                                    <i class="fas fa-search fa-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+            
+                    <!-- Le reste du tableau reste inchangé -->        
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Commande ID</th>
+                                <th>Statut</th>
+                                <th>Reçu</th>
+                                <th class="pe-4">Payé</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="order : ${orders}">
+                                <td class="ps-4 fw-medium">
+                                    <i class="fas fa-barcode me-2 text-muted"></i>
+                                    <span th:text="${order.orderId}"></span>
+                                </td>
+                                <td>
+                                    <span th:classappend="${order.status == 'Livré' ? 'bg-success' : 
+                                                          (order.status == 'En cours' ? 'bg-warning' : 'bg-secondary')}" 
+                                          class="status-badge bg-opacity-10 text-dark">
+                                        <i th:classappend="${order.status == 'Livré' ? 'fa-check-circle' : 
+                                                            (order.status == 'En cours' ? 'fa-spinner' : 'fa-exclamation-circle')}" 
+                                            class="fas me-2"></i>
+                                        <span th:text="${order.status}"></span>
+                                    </span>
+                                </td>
+                                <td>
+                                    <div th:if="${order.received}" class="icon-indicator bg-success bg-opacity-10 text-success">
+                                        <i class="fas fa-check fa-xs"></i>
+                                    </div>
+                                    <div th:unless="${order.received}" class="icon-indicator bg-danger bg-opacity-10 text-danger">
+                                        <i class="fas fa-times fa-xs"></i>
+                                    </div>
+                                </td>
+                                <td class="pe-4">
+                                    <div th:if="${order.paid}" class="icon-indicator bg-success bg-opacity-10 text-success">
+                                        <i class="fas fa-check fa-xs"></i>
+                                    </div>
+                                    <div th:unless="${order.paid}" class="icon-indicator bg-danger bg-opacity-10 text-danger">
+                                        <i class="fas fa-times fa-xs"></i>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Reçu</th>
-                <th>Payé</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="order : ${orders}">
-                <td th:text="${order.orderId}"></td>
-                <td th:text="${order.status}"></td>
-                <td th:text="${order.received ? 'Oui' : 'Non'}"></td>
-                <td th:text="${order.paid ? 'Oui' : 'Non'}"></td>
-            </tr>
-        </tbody>
-    </table>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

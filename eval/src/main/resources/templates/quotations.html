@@ -3,48 +3,102 @@
 <head>
     <title>Demandes de Devis</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .main-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .action-btn {
+            transition: all 0.2s ease;
+            min-width: 160px;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
-<body class="p-4">
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Demandes de Devis</h2>
-    <a href="/suppliers" class="btn btn-secondary btn-sm">Retour aux Fournisseurs</a>
-</div>
+<body class="p-4 bg-light">
+    <div class="container-lg">
+        <div class="main-card">
+            <div class="p-4 border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0 text-primary">
+                            <i class="fas fa-file-contract me-2"></i>Demandes de Devis
+                        </h2>
+                        <small class="text-muted" th:text="'Fournisseur: ' + ${param.supplierId}"></small>
+                    </div>
+                    <a href="/suppliers" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Retour aux fournisseurs
+                    </a>
+                </div>
+            </div>
 
-<!-- Success/Error Messages -->
-<div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-    <span th:text="${successMessage}"></span>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-<div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-    <span th:text="${errorMessage}"></span>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
+            <!-- Alertes -->
+            <div class="px-4 pt-3">
+                <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <span th:text="${successMessage}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span th:text="${errorMessage}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
 
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Description</th>
-            <th>Article</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr th:each="quotation : ${quotations}">
-            <td th:text="${quotation.requestId}"></td>
-            <td th:text="${quotation.description}"></td>
-            <td th:text="${quotation.itemCode}">-</td>
-            <td>
-                <a th:href="@{/supplier/quotation-details(rfqId=${quotation.requestId}, supplierId=${param.supplierId})}" 
-                   class="btn btn-sm btn-info">
-                    Voir Supplier Quotation
-                </a>
-            </td>
-        </tr>
-    </tbody>
-</table>
+            <div class="p-4">
+                <div class="table-responsive">
+                    
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">ID Demande</th>
+                                <th>Description</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="quotation : ${quotations}">
+                                <td class="ps-4 fw-medium">
+                                    <span class="status-indicator bg-success"></span>
+                                    <span th:text="${quotation.requestId}"></span>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;" th:text="${quotation.description}"></div>
+                                </td>
+                             
+                                <td class="text-end pe-4">
+                                    <a th:href="@{/supplier/quotation-details(rfqId=${quotation.requestId}, supplierId=${param.supplierId})}" 
+                                       class="btn btn-outline-info action-btn">
+                                        <i class="fas fa-eye me-2"></i>Détails du devis
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
 
-<!-- Add Bootstrap JS for the alert dismissal functionality -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
