@@ -52,35 +52,74 @@ public class SupplierController {
     }
 
     @GetMapping("/supplier/quotation-details")
-    public String getQuotationDetails(
-            @RequestParam String rfqId,
-            @RequestParam String supplierId,
-            Model model,
-            HttpSession session) {
+public String getQuotationDetails(
+        @RequestParam String rfqId,
+        @RequestParam String supplierId,
+        @RequestParam(required = false) String itemCode,
+        @RequestParam(required = false) String itemName,
+        @RequestParam(required = false) String editable,
+        Model model,
+        HttpSession session) {
 
-        String sid = (String) session.getAttribute("sid");
-        if (sid == null) {
-            return "redirect:/";
-        }
-
-        List<QuotationRequestDTO> quotationDetails = quotationRequestService.getQuotationDetails(rfqId, supplierId, sid);
-
-        model.addAttribute("quotations", quotationDetails);
-        model.addAttribute("rfqId", rfqId);
-        model.addAttribute("supplierId", supplierId);
-
-        return "quotation-details";
+    String sid = (String) session.getAttribute("sid");
+    if (sid == null) {
+        return "redirect:/";
     }
+
+    // Appel du service avec filtres
+    List<QuotationRequestDTO> quotationDetails = quotationRequestService.getFilteredQuotationDetails(
+        rfqId, supplierId, sid, itemCode, itemName, editable
+    );
+
+    model.addAttribute("quotations", quotationDetails);
+    model.addAttribute("rfqId", rfqId);
+    model.addAttribute("supplierId", supplierId);
+
+    // Réinjecte les valeurs pour les conserver dans le formulaire
+    model.addAttribute("itemCode", itemCode);
+    model.addAttribute("itemName", itemName);
+    model.addAttribute("editable", editable);
+
+    return "quotation-details";
+}
+
 
     @GetMapping("/supplier/orders")
-    public String showOrders(@RequestParam String supplierId, Model model, HttpSession session) {
-        String sid = (String) session.getAttribute("sid");
-        if (sid == null) {
-            return "redirect:/";
-        }
+public String showOrders(
+    @RequestParam String supplierId,
+    @RequestParam(required = false) String status,
+    @RequestParam(required = false) String received,
+    @RequestParam(required = false) String paid,
+    Model model,
+    HttpSession session
+) {
+    String sid = (String) session.getAttribute("sid");
+    if (sid == null) return "redirect:/";
 
-        List<OrderDTO> orders = ordersService.getOrders(supplierId, sid);
-        model.addAttribute("orders", orders);
-        return "orders";
+    List<OrderDTO> orders = ordersService.getOrders(supplierId, sid);
+
+    // Application des filtres
+    if (status != null && !status.isBlank()) {
+        orders.removeIf(o -> !status.equalsIgnoreCase(o.getStatus()));
     }
+    if (received != null && !received.isBlank()) {
+        boolean receivedBool = Boolean.parseBoolean(received);
+        orders.removeIf(o -> o.isReceived() != receivedBool);
+    }
+    if (paid != null && !paid.isBlank()) {
+        boolean paidBool = Boolean.parseBoolean(paid);
+        orders.removeIf(o -> o.isPaid() != paidBool);
+    }
+
+    model.addAttribute("orders", orders);
+    model.addAttribute("supplierId", supplierId);
+    model.addAttribute("status", status);
+    model.addAttribute("received", received);
+    model.addAttribute("paid", paid);
+
+    return "orders";
+}
+
+
+    
 }

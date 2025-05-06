@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import itu.prom16.eval.dto.SupplierInvoiceDTO;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -196,4 +202,41 @@ public class AccountingService {
             throw new RuntimeException("Payment processing failed: " + e.getMessage(), e);
         }
     }
+    
+
+public byte[] fetchInvoicePdf(String invoiceId, String sid) {
+    // 1. Construire l’URL de la méthode download_pdf avec query params corrects
+    URI uri = UriComponentsBuilder
+        .fromHttpUrl(baseUrl + "/api/method/frappe.utils.print_format.download_pdf")
+        .queryParam("doctype", "Purchase Invoice")
+        .queryParam("name", invoiceId)
+        .queryParam("format", "FacturePDFPro")
+        .queryParam("no_letterhead", 0)     // optionnel : 1 pour sans en-tête
+        .build()
+        .encode()
+        .toUri();
+
+    // 2. Préparer les headers (inclure sid + Accept PDF)
+    HttpHeaders headers = new HttpHeaders();
+    headers.add("Cookie", "sid=" + sid);
+    headers.setAccept(Collections.singletonList(MediaType.APPLICATION_PDF));
+
+    // 3. Exécuter la requête GET
+    RequestEntity<Void> request = RequestEntity
+        .get(uri)
+        .headers(headers)
+        .build();
+
+    ResponseEntity<byte[]> response = restTemplate.exchange(
+        request,
+        byte[].class
+    );
+
+    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+        throw new RuntimeException(
+            "Échec du téléchargement du PDF (HTTP " + response.getStatusCode() + ")"
+        );
+    }
+    return response.getBody();
+}
 }

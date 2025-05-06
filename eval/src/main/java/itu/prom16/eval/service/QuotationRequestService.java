@@ -91,7 +91,6 @@ public class QuotationRequestService {
         List<QuotationRequestDTO> quotationDetails = new ArrayList<>();
         
         try {
-            // Get Supplier Quotations for this supplier only
             String filters = "[[\"supplier\",\"=\",\"" + supplierId + "\"]]";
             ResponseEntity<JsonNode> quotesResponse = restTemplate.exchange(
                 baseUrl + "/api/resource/Supplier Quotation?filters=" + filters,
@@ -107,7 +106,6 @@ public class QuotationRequestService {
                 for (JsonNode quoteNode : quotesData) {
                     String quoteName = quoteNode.get("name").asText();
                     
-                    // Get the details of this quotation
                     ResponseEntity<JsonNode> quoteDetailResponse = restTemplate.exchange(
                         baseUrl + "/api/resource/Supplier Quotation/" + quoteName,
                         HttpMethod.GET,
@@ -118,7 +116,6 @@ public class QuotationRequestService {
                     JsonNode quoteItems = quoteDetail.get("items");
                     int docStatus = quoteDetail.has("docstatus") ? quoteDetail.get("docstatus").asInt() : 0;
                     
-                    // FIX: Check for blank/null RFQ reference
                     String quotationRfq = "";
                     if (quoteDetail.has("request_for_quotation") && !quoteDetail.get("request_for_quotation").isNull()) {
                         quotationRfq = quoteDetail.get("request_for_quotation").asText("");
@@ -126,16 +123,13 @@ public class QuotationRequestService {
                     
                     logger.debug("RFQ attendu : {} | RFQ lié : {}", rfqId, quotationRfq);
                     
-                    // IMPORTANT FIX: Check items manually for RFQ reference if doc-level reference is missing
                     boolean isMatch = false;
                     
-                    // First check document-level reference
                     if (quotationRfq != null && !quotationRfq.isEmpty() && 
                         quotationRfq.equalsIgnoreCase(rfqId.trim())) {
                         isMatch = true;
                         logger.info("Devis {} lié au RFQ {} (niveau document)", quoteName, rfqId);
                     }
-                    // Then check items for references to the RFQ
                     else if (quoteItems != null && quoteItems.isArray()) {
                         for (JsonNode item : quoteItems) {
                             if (item.has("request_for_quotation") && 
@@ -151,15 +145,12 @@ public class QuotationRequestService {
                         }
                     }
                     
-                    // Continue with processing if match is found
                     if (isMatch) {
-                        // Process items for this quotation
                         if (quoteItems != null && quoteItems.isArray()) {
                             for (JsonNode quoteItem : quoteItems) {
                                 String quoteItemCode = getSafeTextValue(quoteItem, "item_code");
                                 double rate = quoteItem.has("rate") ? quoteItem.get("rate").asDouble() : 0.0;
                                 
-                                // Get item name
                                 String itemName = "N/A";
                                 try {
                                     ResponseEntity<JsonNode> itemResponse = restTemplate.exchange(
@@ -194,9 +185,7 @@ public class QuotationRequestService {
             }
     
             
-            // If no quotations found, create a placeholder for a new one
             if (quotationDetails.isEmpty()) {
-                // Get the RFQ details to create a new quotation based on it
                 ResponseEntity<JsonNode> rfqResponse = restTemplate.exchange(
                     baseUrl + "/api/resource/Request for Quotation/" + rfqId,
                     HttpMethod.GET,
@@ -207,10 +196,8 @@ public class QuotationRequestService {
                 JsonNode rfqItems = rfqData.get("items");
                 
                 if (rfqItems != null && rfqItems.isArray() && rfqItems.size() > 0) {
-                    // Create a placeholder for the first item
                     String itemCode = getSafeTextValue(rfqItems.get(0), "item_code");
                     
-                    // Get item name
                     String itemName = "N/A";
                     try {
                         ResponseEntity<JsonNode> itemResponse = restTemplate.exchange(
@@ -225,7 +212,6 @@ public class QuotationRequestService {
                         logger.warn("Impossible de récupérer le nom de l'article: " + itemCode, ex);
                     }
                     
-                    // Create a placeholder entry
                     QuotationRequestDTO dto = new QuotationRequestDTO();
                     dto.setSupplierQuotationName("Nouveau devis");
                     dto.setItemCode(itemCode);
@@ -259,7 +245,6 @@ public class QuotationRequestService {
                 return;
             }
             
-            // First, get the quotation to check if it's already submitted
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                 baseUrl + "/api/resource/Supplier Quotation/" + quotationName,
                 HttpMethod.GET,
@@ -274,7 +259,6 @@ public class QuotationRequestService {
                 return;
             }
             
-            // If not submitted, try to update the existing item
             JsonNode items = quoteData.get("items");
             String itemRowName = null;
             
@@ -288,7 +272,6 @@ public class QuotationRequestService {
             }
             
             if (itemRowName != null) {
-                // Update the specific item row in the Supplier Quotation Item table
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("rate", newPrice);
                 
@@ -315,4 +298,22 @@ public class QuotationRequestService {
     private String getSafeTextValue(JsonNode node, String fieldName) {
         return node.has(fieldName) ? node.get(fieldName).asText() : "";
     }
+
+    public List<QuotationRequestDTO> getFilteredQuotationDetails(String rfqId, String supplierId, String sid,
+                                                             String itemCode, String itemName, String editable) {
+    List<QuotationRequestDTO> allQuotations = getQuotationDetails(rfqId, supplierId, sid);
+
+    return allQuotations.stream()
+            .filter(q -> itemCode == null || q.getItemCode().toLowerCase().contains(itemCode.toLowerCase()))
+            .filter(q -> itemName == null || q.getItemName().toLowerCase().contains(itemName.toLowerCase()))
+            .filter(q -> {
+                if ("true".equals(editable)) return q.isEditable();
+                if ("false".equals(editable)) return !q.isEditable();
+                return true;
+            })
+            .toList();
+}
+
+
+    
 }

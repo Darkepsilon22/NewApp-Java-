@@ -1,75 +1,179 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Détails du Supplier Quotation</title>
+    <title>Détails du Devis Fournisseur</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .detail-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        .price-input {
+            max-width: 150px;
+            transition: all 0.3s ease;
+        }
+        .price-input:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .status-badge {
+            font-size: 0.8em;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
 </head>
-<body class="p-4">
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Détails du Supplier Quotation</h2>
-    <a th:href="@{/supplier/quotations(supplierId=${supplierId})}" class="btn btn-secondary btn-sm">Retour aux Demandes</a>
-</div>
+<body class="p-4 bg-light">
+<div class="container-lg">
+    <div class="detail-card">
+        <!-- Header -->
+        <div class="p-4 border-bottom bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1 text-primary">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Détails du Devis
+                    </h2>
+                    <div class="text-muted small">
+                        <span th:text="'Fournisseur: ' + ${supplierId}"></span> |
+                        <span th:text="'RFQ: ' + ${rfqId}"></span>
+                    </div>
+                </div>
+                <a th:href="@{/supplier/quotations(supplierId=${supplierId})}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour aux demandes
+                </a>
+            </div>
+        </div>
 
-<!-- Messages de succès/erreur -->
-<div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-    <span th:text="${successMessage}"></span>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-<div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-    <span th:text="${errorMessage}"></span>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
+        <!-- Alertes -->
+        <div class="px-4 pt-3">
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${successMessage}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span th:text="${errorMessage}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
 
-<div class="card mb-4">
-    <div class="card-header">
-        <h4>Demande: <span th:text="${rfqId}"></span></h4>
+        <!-- Formulaire de recherche -->
+        <div class="px-4 pb-3">
+            <form class="row g-2 align-items-end" th:action="@{/supplier/quotation-details}" method="get">
+                <input type="hidden" name="supplierId" th:value="${supplierId}" />
+                <input type="hidden" name="rfqId" th:value="${rfqId}" />
+
+                <div class="col-md-3">
+                    <label class="form-label">Code Article</label>
+                    <input type="text" name="itemCode" class="form-control" th:value="${param.itemCode}" placeholder="Ex: ITEM123">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Nom de l'article</label>
+                    <input type="text" name="itemName" class="form-control" th:value="${param.itemName}" placeholder="Ex: Papier A4">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Modifiable</label>
+                    <select name="editable" class="form-select">
+                        <option th:selected="${param.editable == null}" value="">-- Tous --</option>
+                        <option value="true" th:selected="${param.editable == 'true'}">Oui</option>
+                        <option value="false" th:selected="${param.editable == 'false'}">Non</option>
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Rechercher
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau -->
+        <div class="p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Référence</th>
+                            <th>Article</th>
+                            <th>Désignation</th>
+                            <th>Prix Unitaire</th>
+                            <th class="pe-4 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="quotation : ${quotations}">
+                            <td class="ps-4">
+                                <div class="fw-medium" th:text="${quotation.supplierQuotationName}"></div>
+                                <div th:if="${quotation.isEditable()}" class="badge bg-success bg-opacity-10 text-success status-badge">
+                                    <i class="fas fa-edit me-1"></i>Modifiable
+                                </div>
+                                <div th:unless="${quotation.isEditable()}" class="badge bg-secondary bg-opacity-10 text-secondary status-badge">
+                                    <i class="fas fa-lock me-1"></i>Finalisé
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary bg-opacity-10 text-primary" th:text="${quotation.itemCode}"></span>
+                            </td>
+                            <td th:text="${quotation.itemName}"></td>
+                            <td>
+                                <span th:if="${quotation.rate > 0}" class="text-success fw-medium">
+                                    <i class="fas fa-euro-sign me-1"></i>
+                                    <span th:text="${#numbers.formatDecimal(quotation.rate, 1, 2)}"></span>
+                                </span>
+                                <span th:unless="${quotation.rate > 0}" class="text-muted">
+                                    À déterminer
+                                </span>
+                            </td>
+                            <td class="pe-4 text-end">
+                                <div th:if="${quotation.isEditable()}">
+                                    <form th:action="@{/item/update-quotation-price}" method="post" class="d-flex gap-2 justify-content-end">
+                                        <input type="hidden" name="itemCode" th:value="${quotation.itemCode}" />
+                                        <input type="hidden" name="supplierId" th:value="${supplierId}" />
+                                        <input type="hidden" name="rfqId" th:value="${rfqId}" />
+                                        <input type="hidden" name="quotationName" th:value="${quotation.supplierQuotationName}" />
+
+                                        <div class="input-group input-group-sm" style="max-width: 200px;">
+                                            <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
+                                            <input type="number"
+                                                   name="newPrice"
+                                                   step="0.01"
+                                                   th:value="${quotation.rate > 0 ? #numbers.formatDecimal(quotation.rate, 1, 2) : ''}"
+                                                   placeholder="Nouveau prix"
+                                                   required
+                                                   class="form-control price-input"
+                                                   min="0" />
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-save me-2"></i>Mettre à jour
+                                        </button>
+                                    </form>
+                                </div>
+                                <div th:unless="${quotation.isEditable()}" class="text-muted small">
+                                    <i class="fas fa-info-circle me-1"></i>Lecture seule
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(quotations)}">
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="fas fa-box-open fa-2x mb-2"></i><br/>
+                                Aucun résultat trouvé pour votre recherche.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Supplier Quotation</th>
-                    <th>Article</th>
-                    <th>Nom Article</th>
-                    <th>Prix actuel</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="quotation : ${quotations}">
-                    <td th:text="${quotation.supplierQuotationName}"></td>
-                    <td th:text="${quotation.itemCode}"></td>
-                    <td th:text="${quotation.itemName}"></td>
-                    <td th:text="${quotation.rate > 0 ? #numbers.formatDecimal(quotation.rate, 1, 2) + ' EUR' : 'À déterminer'}"></td>
-                    <td>
-                        <div th:if="${quotation.isEditable()}">
-                            <form th:action="@{/item/update-quotation-price}" method="post" class="d-flex gap-2">
-                                <input type="hidden" name="itemCode" th:value="${quotation.itemCode}" />
-                                <input type="hidden" name="supplierId" th:value="${supplierId}" />
-                                <input type="hidden" name="rfqId" th:value="${rfqId}" />
-                                <input type="hidden" name="quotationName" th:value="${quotation.supplierQuotationName}" />
-                                <input type="number" 
-                                       name="newPrice" 
-                                       step="0.01" 
-                                       th:value="${quotation.rate > 0 ? #numbers.formatDecimal(quotation.rate, 1, 2) : ''}"
-                                       placeholder="Nouveau prix" 
-                                       required 
-                                       class="form-control form-control-sm" 
-                                       min="0" />
-                                <button type="submit" class="btn btn-sm btn-primary">Mettre à jour</button>
-                            </form>
-                        </div>
-                        <div th:unless="${quotation.isEditable()}" class="text-muted">
-                            Non modifiable (déjà soumis)
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
 </div>
 
-<!-- Script Bootstrap pour la gestion des alertes -->
+<!-- Bootstrap Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

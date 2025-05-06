@@ -1,86 +1,158 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Mode Comptable – Factures</title>
+    <title>Gestion Comptable - Factures</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .alert-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            width: 300px;
+        .accounting-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+        .payment-form {
+            max-width: 300px;
+            transition: all 0.3s ease;
+        }
+        .payment-form:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
-<body class="p-4">
-
-<div class="alert-container">
-    <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
-        <span th:text="${success}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
-        <span th:text="${error}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>💼 Mode Comptable – Factures fournisseurs</h2>
-    <a href="/suppliers" class="btn btn-secondary btn-sm">← Retour</a>
-</div>
-
-<table class="table table-bordered table-hover">
-    <thead class="table-light">
-        <tr>
-            <th>Facture</th>
-            <th>Fournisseur</th>
-            <th>Total (€)</th>
-            <th>Restant (€)</th>
-            <th>Statut</th>
-            <th>Payer</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr th:if="${#lists.isEmpty(invoices)}">
-            <td colspan="6" class="text-center">Aucune facture trouvée.</td>
-        </tr>
-        <tr th:each="invoice : ${invoices}">
-            <td th:text="${invoice.name}">INV-0001</td>
-            <td th:text="${invoice.supplier}">Fournisseur</td>
-            <td th:text="${#numbers.formatDecimal(invoice.grandTotal, 1, 2)}">100.00</td>
-            <td th:text="${#numbers.formatDecimal(invoice.outstandingAmount, 1, 2)}">100.00</td>
-            <td>
-                <span th:text="${invoice.status}" 
-                      th:class="${invoice.status.equalsIgnoreCase('Paid')} ? 'text-success' : 'text-danger'">
-                    Unpaid
-                </span>
-            </td>
-            <td>
-                <div th:if="${invoice.outstandingAmount > 0}">
-                    <form th:action="@{/accounting/pay}" method="post" class="d-flex gap-2">
-                
-                        
-                        <input type="hidden" name="invoiceId" th:value="${invoice.name}" />
-                        <input type="hidden" name="supplier" th:value="${invoice.supplier}" />
-                        <input type="number" name="amount"
-                               th:attr="max=${invoice.outstandingAmount}"
-                               th:value="${invoice.outstandingAmount}"
-                               step="0.01" class="form-control form-control-sm"
-                               required min="0.01"
-                               aria-label="Montant à payer" />
-                        <button type="submit" class="btn btn-success btn-sm">💸 Payer</button>
-                    </form>
+<body class="p-4 bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-4">
+        <div class="container-lg">
+            <a class="navbar-brand text-primary" href="/suppliers">
+                <i class="fas fa-users-cog me-2"></i>Gestion Factures
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/suppliers">
+                            <i class="fas fa-users me-2"></i>Fournisseurs
+                        </a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="fas fa-sign-out-alt me-2"></i>Déconnexion
+                    </a>
                 </div>
-                <div th:if="${invoice.outstandingAmount <= 0}">
-                    <span class="text-success">✔ Payé</span>
-                </div>
-            </td>
-        </tr>
-    </tbody>
-</table>
+            </div>
+        </div>
+    </nav>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Alertes -->
+    <div class="alert-container">
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Référence</th>
+                        <th>Fournisseur</th>
+                        <th>Total</th>
+                        <th>Reste à payer</th>
+                        <th>Statut</th>
+                        <th class="pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(invoices)}">
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-file-excel me-2"></i>Aucune facture trouvée
+                        </td>
+                    </tr>
+                    <tr th:each="invoice : ${invoices}">
+                        <td class="ps-4 fw-medium">
+                            <i class="fas fa-hashtag text-muted me-2"></i>
+                            <span th:text="${invoice.name}"></span>
+                        </td>
+                        <td th:text="${invoice.supplier}"></td>
+                        <td class="text-nowrap">
+                            <span th:text="${#numbers.formatDecimal(invoice.grandTotal, 1, 2)}"></span> €
+                        </td>
+                        <td class="text-nowrap">
+                            <span th:class="${invoice.outstandingAmount > 0} ? 'text-danger' : 'text-success'"
+                                  th:text="${#numbers.formatDecimal(invoice.outstandingAmount, 1, 2)}"></span> €
+                        </td>
+                        <td>
+                            <span th:classappend="${invoice.status.equalsIgnoreCase('Paid')} ? 
+                                'bg-success' : 'bg-danger'" 
+                                class="status-badge bg-opacity-10">
+                                <i th:classappend="${invoice.status.equalsIgnoreCase('Paid')} ? 
+                                    'fa-check-circle' : 'fa-exclamation-circle'" 
+                                    class="fas me-2"></i>
+                                <span th:text="${invoice.status}"></span>
+                            </span>
+                        </td>
+                        <td class="pe-4">
+                            <div th:if="${invoice.outstandingAmount > 0}">
+                                <form th:action="@{/accounting/pay}" method="post" class="payment-form input-group input-group-sm mb-2">
+                                    <input type="hidden" name="invoiceId" th:value="${invoice.name}" />
+                                    <input type="hidden" name="supplier" th:value="${invoice.supplier}" />
+                                    <span class="input-group-text">
+                                        <i class="fas fa-euro-sign"></i>
+                                    </span>
+                                    <input type="number" 
+                                           name="amount"
+                                           th:attr="max=${invoice.outstandingAmount}"
+                                           th:value="${invoice.outstandingAmount}"
+                                           step="0.01" 
+                                           class="form-control"
+                                           required 
+                                           min="0.01"
+                                           aria-label="Montant à payer" />
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-coins me-2"></i>Payer
+                                    </button>
+                                </form>
+                            </div>
+                            <div th:if="${invoice.outstandingAmount <= 0}" class="text-center mb-2">
+                                <span class="badge bg-success bg-opacity-10 text-success">
+                                    <i class="fas fa-check-circle me-2"></i>Règlement complet
+                                </span>
+                            </div>
+                            <div class="text-center">
+                                <a th:href="@{/accounting/{id}/export(id=${invoice.name})}"
+                                   class="btn btn-outline-secondary btn-sm"
+                                   target="_blank"
+                                   title="Exporter la facture en PDF">
+                                    📄 PDF
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
